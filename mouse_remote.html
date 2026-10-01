@@ -196,7 +196,7 @@ touchArea.addEventListener('touchmove', (e) => {
     if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
       moved = true;
       clearTimeout(longPressTimer);
-      send({type: 'move', dx: dx * 1.5, dy: dy * 1.5});
+      send({type: 'move', dx: dx * 2.0, dy: dy * 2.0});
     }
     lastX = x;
     lastY = y;
