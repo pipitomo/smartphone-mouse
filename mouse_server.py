@@ -4,6 +4,7 @@ import socket
 from pathlib import Path
 
 import pyautogui
+import pyperclip
 import qrcode
 from aiohttp import web
 from aiortc import RTCPeerConnection, RTCSessionDescription
@@ -22,7 +23,6 @@ pyautogui.PAUSE = 0
 
 # ============================================================
 # 移動量・スクロール量をここに溜めておき、cursor_moverが一定間隔でまとめて反映する
-# （move専用だった対策を、詰まりの原因になっていたscrollにも同じように適用する）
 # ============================================================
 
 _move_dx = 0.0
@@ -90,12 +90,10 @@ def setup_data_channel(channel):
         data_type = data.get("type")
 
         if data_type == "move":
-            # 直接動かさず溜めるだけにする（渋滞防止）
             _move_dx += data.get("dx", 0)
             _move_dy += data.get("dy", 0)
 
         elif data_type == "scroll":
-            # ここが今回の修正点：直接pyautogui.scroll()を呼ばず、溜めるだけにする
             _scroll_amount += data.get("amount", 0)
 
         elif data_type == "click":
@@ -105,16 +103,28 @@ def setup_data_channel(channel):
                 print("[ERROR] click:", e)
 
         elif data_type == "rightclick":
-            # スマホ側は小文字 'rightclick' で送ってくるので、ここも合わせる
-            # （以前は 'rightClick' と大文字違いで一致しておらず、右クリックが一度も発動しなかった）
             try:
                 pyautogui.rightClick()
             except Exception as e:
                 print("[ERROR] rightClick:", e)
 
         elif data_type == "stop":
-            # 惰性補間を使っていた版の名残。今の実装では特に何もしなくてよい
             pass
+
+        elif data_type == "text":
+            # pyautogui.write()はキーを1つずつ押す方式なので日本語が打てない。
+            # クリップボード経由のペーストにすることで文字種を問わず確実に反映する。
+            try:
+                pyperclip.copy(data.get("text", ""))
+                pyautogui.hotkey("ctrl", "v")
+            except Exception as e:
+                print("[ERROR] text:", e)
+
+        elif data_type == "key":
+            try:
+                pyautogui.press(data.get("key", ""))
+            except Exception as e:
+                print("[ERROR] press:", e)
 
 
 # ============================================================
@@ -173,7 +183,7 @@ async def main():
 
     print()
     print("=" * 60)
-    print("              スマホマウス Ver1.2")
+    print("              スマホマウス Ver1.3")
     print("=" * 60)
     print()
     print("スマホで以下のQRコードを読み取ってください。")

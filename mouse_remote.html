@@ -73,6 +73,35 @@
   }
   #bar button:active { background: #48484a; }
   #bar button + button { border-left: 1px solid #3a3a3c; }
+
+  #keyboardPanel {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: #1c1c1ecc;
+    z-index: 10;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+  #textInput {
+    width: 100%;
+    height: 120px;
+    font-size: 16px;
+    padding: 10px;
+    border: none;
+    box-sizing: border-box;
+  }
+  #keyboardPanel .kbRow { display: flex; }
+  #keyboardPanel .kbRow button {
+    flex: 1;
+    padding: 16px;
+    font-size: 15px;
+    background: #2c2c2e;
+    color: #eee;
+    border: none;
+    border-top: 1px solid #3a3a3c;
+  }
+  #keyboardPanel .kbRow button + button { border-left: 1px solid #3a3a3c; }
 </style>
 </head>
 <body>
@@ -89,12 +118,26 @@
   <div id="bar">
     <button ontouchstart="clickLeft(event)">左クリック</button>
     <button ontouchstart="clickRight(event)">右クリック</button>
+    <button ontouchstart="openKeyboard(event)">⌨️ キーボード</button>
+  </div>
+</div>
+
+<div id="keyboardPanel">
+  <textarea id="textInput"></textarea>
+  <div class="kbRow">
+    <button ontouchstart="sendText(event)">送信</button>
+    <button ontouchstart="sendEnter(event)">Enter</button>
+    <button ontouchstart="closeKeyboard(event)">閉じる</button>
   </div>
 </div>
 
 <script>
 let pc = null;
 let channel = null;
+
+// 感度（大きいほど、同じ指の動きで大きく動く）
+const MOVE_SENSITIVITY = 2.5;
+const SCROLL_SENSITIVITY = 4;
 
 async function connect() {
   const status = document.getElementById('padStatus');
@@ -155,6 +198,30 @@ function send(obj) {
 function clickLeft(e) { e.preventDefault(); send({type: 'click'}); }
 function clickRight(e) { e.preventDefault(); send({type: 'rightclick'}); }
 
+// --- キーボード入力パネル ---
+function openKeyboard(e) {
+  e.preventDefault();
+  document.getElementById('keyboardPanel').style.display = 'flex';
+  document.getElementById('textInput').focus();
+}
+function closeKeyboard(e) {
+  e.preventDefault();
+  document.getElementById('textInput').blur();
+  document.getElementById('keyboardPanel').style.display = 'none';
+}
+function sendText(e) {
+  e.preventDefault();
+  const el = document.getElementById('textInput');
+  if (el.value) {
+    send({type: 'text', text: el.value});
+    el.value = '';
+  }
+}
+function sendEnter(e) {
+  e.preventDefault();
+  send({type: 'key', key: 'enter'});
+}
+
 window.addEventListener('load', connect);
 
 // --- タッチパッド操作 ---
@@ -196,7 +263,7 @@ touchArea.addEventListener('touchmove', (e) => {
     if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
       moved = true;
       clearTimeout(longPressTimer);
-      send({type: 'move', dx: dx * 2.0, dy: dy * 2.0});
+      send({type: 'move', dx: dx * MOVE_SENSITIVITY, dy: dy * MOVE_SENSITIVITY});
     }
     lastX = x;
     lastY = y;
@@ -221,9 +288,6 @@ touchArea.addEventListener('touchend', (e) => {
     send({type: 'stop'}); // 指が完全に離れたら惰性を打ち切る
   }
 }, { passive: false });
-
-// スクロールの感度（大きいほど、同じ指の動きで大きくスクロールする）
-const SCROLL_SENSITIVITY = 4;
 
 // --- 片手用スクロールゾーン（右端を1本指でなぞるとスクロール） ---
 const scrollZone = document.getElementById('scrollZone');
