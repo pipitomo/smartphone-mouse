@@ -31,6 +31,8 @@ _scroll_amount = 0.0
 
 _peer_connections = set()
 
+_loop = None  # asyncioのイベントループを後で参照するための入れ物
+
 
 def get_local_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -112,19 +114,51 @@ def setup_data_channel(channel):
             pass
 
         elif data_type == "text":
-            # pyautogui.write()はキーを1つずつ押す方式なので日本語が打てない。
-            # クリップボード経由のペーストにすることで文字種を問わず確実に反映する。
-            try:
-                pyperclip.copy(data.get("text", ""))
-                pyautogui.hotkey("ctrl", "v")
-            except Exception as e:
-                print("[ERROR] text:", e)
+            # クリップボードコピー＋Ctrl+Vは数十ms程度かかることがあり、
+            # メインループ上で直接実行するとカーソル移動が一瞬詰まる。
+            # 別スレッドに逃がし、カーソル処理を止めないようにする。
+            async def _paste(text):
+                try:
+                    await asyncio.to_thread(pyperclip.copy, text)
+                    await asyncio.to_thread(pyautogui.hotkey, "ctrl", "v")
+                except Exception as e:
+                    print("[ERROR] text:", e)
+
+            # このコールバックはイベントループとは別スレッドから呼ばれることがあるため、
+            # create_taskではなくrun_coroutine_threadsafeで確実にループへ渡す
+            asyncio.run_coroutine_threadsafe(_paste(data.get("text", "")), _loop)
 
         elif data_type == "key":
+            async def _press(key):
+                try:
+                    await asyncio.to_thread(pyautogui.press, key)
+                except Exception as e:
+                    print("[ERROR] press:", e)
+
+            asyncio.run_coroutine_threadsafe(_press(data.get("key", "")), _loop)
+
+        elif data_type == "mousedown":
             try:
-                pyautogui.press(data.get("key", ""))
+                pyautogui.mouseDown()
             except Exception as e:
-                print("[ERROR] press:", e)
+                print("[ERROR] mouseDown:", e)
+
+        elif data_type == "mouseup":
+            try:
+                pyautogui.mouseUp()
+            except Exception as e:
+                print("[ERROR] mouseUp:", e)
+
+        elif data_type == "hotkey":
+            keys = data.get("keys", [])
+
+            async def _hotkey(keys):
+                try:
+                    await asyncio.to_thread(pyautogui.hotkey, *keys)
+                except Exception as e:
+                    print("[ERROR] hotkey:", e)
+
+            asyncio.run_coroutine_threadsafe(_hotkey(keys), _loop)
 
 
 # ============================================================
@@ -147,6 +181,10 @@ async def offer_handler(request):
     async def on_connectionstatechange():
         print("[WEBRTC] connectionState:", pc.connectionState)
         if pc.connectionState in ("failed", "closed", "disconnected"):
+            try:
+                pyautogui.mouseUp()  # ドラッグ中に切断された場合の保険
+            except Exception:
+                pass
             await pc.close()
             _peer_connections.discard(pc)
 
@@ -169,6 +207,9 @@ async def index_handler(request):
 # ============================================================
 
 async def main():
+    global _loop
+    _loop = asyncio.get_running_loop()
+
     ip = get_local_ip()
     url = f"http://{ip}:{HTTP_PORT}/mouse_remote.html"
 
@@ -183,7 +224,7 @@ async def main():
 
     print()
     print("=" * 60)
-    print("              スマホマウス Ver1.3")
+    print("              スマホマウス Ver1.4")
     print("=" * 60)
     print()
     print("スマホで以下のQRコードを読み取ってください。")
