@@ -30,6 +30,12 @@
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
   }
+  #padMain {
+    flex: 1;
+    display: flex;
+    flex-direction: row;
+    min-height: 0;
+  }
   #touchArea {
     flex: 1;
     display: flex;
@@ -39,6 +45,18 @@
     font-size: 14px;
     text-align: center;
     padding: 20px;
+  }
+  #scrollZone {
+    width: 48px;
+    background: #262628;
+    border-left: 1px solid #3a3a3c;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #666;
+    font-size: 11px;
+    writing-mode: vertical-rl;
+    letter-spacing: 2px;
   }
   #bar {
     display: flex;
@@ -61,10 +79,12 @@
 
 <div id="pad">
   <div id="padStatus">接続中...</div>
-  <div id="touchArea">
-    ここを指でなぞってカーソルを移動<br>
-    タップ=左クリック / 長押し=右クリック<br>
-    2本指スワイプ=スクロール
+  <div id="padMain">
+    <div id="touchArea">
+      ここを指でなぞってカーソルを移動<br>
+      タップ=左クリック / 長押し=右クリック
+    </div>
+    <div id="scrollZone">スクロール</div>
   </div>
   <div id="bar">
     <button ontouchstart="clickLeft(event)">左クリック</button>
@@ -185,7 +205,7 @@ touchArea.addEventListener('touchmove', (e) => {
     clearTimeout(longPressTimer);
     const y = e.touches[0].clientY;
     const dy = y - lastY;
-    send({type: 'scroll', amount: -dy});
+    send({type: 'scroll', amount: -dy * SCROLL_SENSITIVITY});
     lastY = y;
   }
 }, { passive: false });
@@ -200,6 +220,26 @@ touchArea.addEventListener('touchend', (e) => {
   if (e.touches.length === 0) {
     send({type: 'stop'}); // 指が完全に離れたら惰性を打ち切る
   }
+}, { passive: false });
+
+// スクロールの感度（大きいほど、同じ指の動きで大きくスクロールする）
+const SCROLL_SENSITIVITY = 4;
+
+// --- 片手用スクロールゾーン（右端を1本指でなぞるとスクロール） ---
+const scrollZone = document.getElementById('scrollZone');
+let scrollLastY = 0;
+
+scrollZone.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  scrollLastY = e.touches[0].clientY;
+}, { passive: false });
+
+scrollZone.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  const y = e.touches[0].clientY;
+  const dy = y - scrollLastY;
+  send({type: 'scroll', amount: -dy * SCROLL_SENSITIVITY});
+  scrollLastY = y;
 }, { passive: false });
 </script>
 
