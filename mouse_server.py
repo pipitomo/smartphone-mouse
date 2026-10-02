@@ -28,6 +28,8 @@ pyautogui.PAUSE = 0
 _move_dx = 0.0
 _move_dy = 0.0
 _scroll_amount = 0.0
+_move_remainder_x = 0.0
+_move_remainder_y = 0.0
 
 _peer_connections = set()
 
@@ -50,19 +52,28 @@ def get_local_ip():
 # ============================================================
 
 async def cursor_mover():
-    global _move_dx, _move_dy, _scroll_amount
+    global _move_dx, _move_dy, _scroll_amount, _move_remainder_x, _move_remainder_y
 
     while True:
         await asyncio.sleep(0.01)
 
         if _move_dx != 0 or _move_dy != 0:
-            dx, dy = _move_dx, _move_dy
+            dx = _move_dx + _move_remainder_x
+            dy = _move_dy + _move_remainder_y
             _move_dx = 0.0
             _move_dy = 0.0
-            try:
-                pyautogui.moveRel(dx, dy, duration=0)
-            except Exception as e:
-                print("[ERROR] moveRel:", e)
+
+            int_dx = int(dx)
+            int_dy = int(dy)
+            # 整数に切り捨てた端数を捨てずに次回へ持ち越す（小さい動きの取りこぼし防止）
+            _move_remainder_x = dx - int_dx
+            _move_remainder_y = dy - int_dy
+
+            if int_dx != 0 or int_dy != 0:
+                try:
+                    pyautogui.moveRel(int_dx, int_dy, duration=0)
+                except Exception as e:
+                    print("[ERROR] moveRel:", e)
 
         if _scroll_amount != 0:
             amount = _scroll_amount

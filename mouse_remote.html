@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover">
-  <title>smart-mouse</title>
+  <title>スマホマウス</title>
   <style>
     * {
       box-sizing: border-box;
@@ -288,16 +288,6 @@
 
     window.addEventListener('load', connect);
 
-    function moveLoop() {
-      if (pendingDx !== 0 || pendingDy !== 0) {
-        send({ type: 'move', dx: pendingDx, dy: pendingDy });
-        pendingDx = 0;
-        pendingDy = 0;
-      }
-      requestAnimationFrame(moveLoop);
-    }
-    requestAnimationFrame(moveLoop);
-
     // --- タッチパッド操作 ---
     const touchArea = document.getElementById('touchArea');
     let lastX = 0, lastY = 0;
@@ -307,9 +297,26 @@
     let didLongPress = false;
     let touchCount = 0;
     let dragMode = false;
-    let pendingDx = 0, pendingDy = 0;
     let lastTapTime = 0;
     let lastTapX = 0, lastTapY = 0;
+    let pendingDx = 0, pendingDy = 0;
+
+    function applySensitivity(dx, dy) {
+      const dist = Math.hypot(dx, dy);
+      // ゆっくり動かすほど低倍率（精密）、素早く動かすほど高倍率
+      const factor = Math.min(1.0 + dist * 0.25, 4.5);
+      return [dx * factor, dy * factor];
+    }
+
+    function moveLoop() {
+      if (pendingDx !== 0 || pendingDy !== 0) {
+        send({ type: 'move', dx: pendingDx, dy: pendingDy });
+        pendingDx = 0;
+        pendingDy = 0;
+      }
+      requestAnimationFrame(moveLoop);
+    }
+    requestAnimationFrame(moveLoop);
 
     touchArea.addEventListener('touchstart', (e) => {
       e.preventDefault();
@@ -353,12 +360,20 @@
         const y = e.touches[0].clientY;
         const dx = x - lastX;
         const dy = y - lastY;
+
+        // タップかドラッグかの判定用の閾値（誤タップ防止のため維持）
         if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
           moved = true;
           clearTimeout(longPressTimer);
-          pendingDx += dx * MOVE_SENSITIVITY;
-          pendingDy += dy * MOVE_SENSITIVITY;
         }
+
+        // 送る方には閾値を設けず、小さい動きも取りこぼさない
+        if (dx !== 0 || dy !== 0) {
+          const [adx, ady] = applySensitivity(dx, dy);
+          pendingDx += adx;
+          pendingDy += ady;
+        }
+
         lastX = x;
         lastY = y;
       } else if (e.touches.length === 2) {
