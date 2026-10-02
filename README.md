@@ -1,6 +1,6 @@
 # スマホマウス
 
-iPhoneのSafariを、Windowsのトラックパッドとキーボードがわりにするツールです。
+iPhoneのSafariを、Windowsのトラックパッドとキーボードにするツールです。
 PC側はPythonスクリプト1本、スマホ側は専用アプリ不要でSafariを開くだけ。QRコードを読み取ればすぐ使えます。
 
 ## できること
@@ -41,7 +41,7 @@ pip install -r requirements.txt
 | スクロール | 2本指スワイプ / 画面右端の専用ゾーン |
 | 文字入力 | 「⌨️ キーボード」ボタン |
 
-## 既知の制約
+## 制約
 
 - Windows専用(動作確認済みはWindowsのみ)
 - iPhone専用(Androidは未検証)
