@@ -1,435 +1,443 @@
 <!DOCTYPE html>
 <html lang="ja">
-
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover">
-  <title>スマホマウス</title>
-  <style>
-    * {
-      box-sizing: border-box;
-      -webkit-user-select: none;
-      user-select: none;
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover">
+<title>スマホマウス</title>
+<style>
+  * { box-sizing: border-box; -webkit-user-select: none; user-select: none; }
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: #1c1c1e;
+    color: #eee;
+    font-family: -apple-system, sans-serif;
+    overscroll-behavior: none;
+    touch-action: none;
+  }
+  #padStatus {
+    position: absolute;
+    top: max(8px, env(safe-area-inset-top));
+    left: 0; right: 0;
+    text-align: center;
+    font-size: 12px;
+    color: #888;
+    z-index: 1;
+  }
+  #pad {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+  }
+  #padMain {
+    flex: 1;
+    display: flex;
+    flex-direction: row;
+    min-height: 0;
+  }
+  #touchArea {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #555;
+    font-size: 14px;
+    text-align: center;
+    padding: 20px;
+  }
+  #scrollZone {
+    width: 48px;
+    background: #262628;
+    border-left: 1px solid #3a3a3c;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #666;
+    font-size: 11px;
+    writing-mode: vertical-rl;
+    letter-spacing: 2px;
+  }
+  #bar {
+    display: flex;
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+  }
+  #bar button {
+    flex: 1;
+    padding: 18px 0;
+    background: #2c2c2e;
+    color: #eee;
+    border: none;
+    border-top: 1px solid #3a3a3c;
+    font-size: 15px;
+  }
+  #bar button:active { background: #48484a; }
+  #bar button + button { border-left: 1px solid #3a3a3c; }
 
-    html,
-    body {
-      height: 100%;
-      margin: 0;
-      background: #1c1c1e;
-      color: #eee;
-      font-family: -apple-system, sans-serif;
-      overscroll-behavior: none;
-      touch-action: none;
-    }
-
-    #padStatus {
-      position: absolute;
-      top: max(8px, env(safe-area-inset-top));
-      left: 0;
-      right: 0;
-      text-align: center;
-      font-size: 12px;
-      color: #888;
-      z-index: 1;
-    }
-
-    #pad {
-      display: flex;
-      flex-direction: column;
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-    }
-
-    #padMain {
-      flex: 1;
-      display: flex;
-      flex-direction: row;
-      min-height: 0;
-    }
-
-    #touchArea {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #555;
-      font-size: 14px;
-      text-align: center;
-      padding: 20px;
-    }
-
-    #scrollZone {
-      width: 48px;
-      background: #262628;
-      border-left: 1px solid #3a3a3c;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #666;
-      font-size: 11px;
-      writing-mode: vertical-rl;
-      letter-spacing: 2px;
-    }
-
-    #bar {
-      display: flex;
-      padding-bottom: max(10px, env(safe-area-inset-bottom));
-    }
-
-    #bar button {
-      flex: 1;
-      padding: 18px 0;
-      background: #2c2c2e;
-      color: #eee;
-      border: none;
-      border-top: 1px solid #3a3a3c;
-      font-size: 15px;
-    }
-
-    #bar button:active {
-      background: #48484a;
-    }
-
-    #bar button+button {
-      border-left: 1px solid #3a3a3c;
-    }
-
-    /* キーボードパネルは画面全体ではなく下部だけを覆う「ボトムシート」方式。
+  /* キーボードパネルは画面全体ではなく下部だけを覆う「ボトムシート」方式。
      これにより開いている間もトラックパッド/スクロールゾーンの操作を邪魔しない */
-    #keyboardPanel {
-      display: none;
-      position: fixed;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: #1c1c1e;
-      border-top: 1px solid #3a3a3c;
-      z-index: 10;
-      flex-direction: column;
-      padding-bottom: env(safe-area-inset-bottom, 0px);
-    }
-
-    #textInput {
-      width: 100%;
-      height: 120px;
-      font-size: 16px;
-      padding: 10px;
-      border: none;
-      box-sizing: border-box;
-    }
-
-    #keyboardPanel .kbRow {
-      display: flex;
-    }
-
-    #keyboardPanel .kbRow button {
-      flex: 1;
-      padding: 16px;
-      font-size: 15px;
-      background: #2c2c2e;
-      color: #eee;
-      border: none;
-      border-top: 1px solid #3a3a3c;
-    }
-
-    #keyboardPanel .kbRow button+button {
-      border-left: 1px solid #3a3a3c;
-    }
-  </style>
+  #keyboardPanel {
+    display: none;
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    background: #1c1c1e;
+    border-top: 1px solid #3a3a3c;
+    z-index: 10;
+    flex-direction: column;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  #textInput {
+    width: 100%;
+    height: 120px;
+    font-size: 16px;
+    padding: 10px;
+    border: none;
+    box-sizing: border-box;
+  }
+  #keyboardPanel .kbRow { display: flex; }
+  #keyboardPanel .kbRow button {
+    flex: 1;
+    padding: 16px;
+    font-size: 15px;
+    background: #2c2c2e;
+    color: #eee;
+    border: none;
+    border-top: 1px solid #3a3a3c;
+  }
+  #keyboardPanel .kbRow button + button { border-left: 1px solid #3a3a3c; }
+</style>
 </head>
-
 <body>
 
-  <div id="pad">
-    <div id="padStatus">接続中...</div>
-    <div id="padMain">
-      <div id="touchArea">
-        ここを指でなぞってカーソルを移動<br>
-        タップ=左クリック / 長押し=右クリック
-      </div>
-      <div id="scrollZone">スクロール</div>
+<div id="pad">
+  <div id="padStatus">接続中...</div>
+  <div id="padMain">
+    <div id="touchArea">
+      ここを指でなぞってカーソルを移動<br>
+      タップ=左クリック / 長押し=右クリック
     </div>
-    <div id="bar">
-      <button ontouchstart="clickLeft(event)">左クリック</button>
-      <button ontouchstart="clickRight(event)">右クリック</button>
-      <button ontouchstart="openKeyboard(event)">⌨️ キーボード</button>
-    </div>
+    <div id="scrollZone">スクロール</div>
   </div>
-
-  <div id="keyboardPanel">
-    <textarea id="textInput"></textarea>
-    <div class="kbRow">
-      <button ontouchstart="sendText(event)">送信</button>
-      <button ontouchstart="sendEnter(event)">Enter</button>
-      <button ontouchstart="startBackspace(event)" ontouchend="stopBackspace(event)"
-        ontouchcancel="stopBackspace(event)">⌫</button>
-      <button ontouchstart="closeKeyboard(event)">閉じる</button>
-    </div>
-    <div class="kbRow">
-      <button ontouchstart="sendCopy(event)">コピー</button>
-      <button ontouchstart="sendPaste(event)">貼り付け</button>
-    </div>
+  <div id="bar">
+    <button ontouchstart="clickLeft(event)">左クリック</button>
+    <button ontouchstart="clickRight(event)">右クリック</button>
+    <button ontouchstart="openKeyboard(event)">⌨️ キーボード</button>
   </div>
+</div>
 
-  <script>
-    let pc = null;
-    let channel = null;
+<div id="keyboardPanel">
+  <textarea id="textInput"></textarea>
+  <div class="kbRow">
+    <button ontouchstart="sendText(event)">送信</button>
+    <button ontouchstart="sendEnter(event)">Enter</button>
+    <button ontouchstart="startBackspace(event)" ontouchend="stopBackspace(event)" ontouchcancel="stopBackspace(event)">⌫</button>
+    <button ontouchstart="closeKeyboard(event)">閉じる</button>
+  </div>
+  <div class="kbRow">
+    <button ontouchstart="sendCopy(event)">コピー</button>
+    <button ontouchstart="sendPaste(event)">貼り付け</button>
+  </div>
+</div>
 
-    // 感度（大きいほど、同じ指の動きで大きく動く）
-    const MOVE_SENSITIVITY = 2.5;
-    const SCROLL_SENSITIVITY = 4;
+<script>
+let pc = null;
+let channel = null;
 
-    async function connect() {
-      const status = document.getElementById('padStatus');
-      status.textContent = '接続中...';
+// 感度（大きいほど、同じ指の動きで大きく動く）
+const MOVE_SENSITIVITY = 2.5;
+const SCROLL_SENSITIVITY = 4;
 
-      pc = new RTCPeerConnection();
+async function connect() {
+  const status = document.getElementById('padStatus');
+  status.textContent = '接続中...';
 
-      // 信頼性なしモード：多少データが欠けても再送を待たず、
-      // とにかく最新の移動量を素早く届ける（回線が悪い環境向け）
-      channel = pc.createDataChannel('mouse', {
-        ordered: false,
-        maxRetransmits: 0,
+  pc = new RTCPeerConnection();
+
+  // 信頼性なしモード：多少データが欠けても再送を待たず、
+  // とにかく最新の移動量を素早く届ける（回線が悪い環境向け）
+  channel = pc.createDataChannel('mouse', {
+    ordered: false,
+    maxRetransmits: 0,
+  });
+
+  channel.onopen = () => { status.textContent = ''; };
+  channel.onclose = () => {
+    status.textContent = '切断されました。再接続中...';
+    setTimeout(connect, 1500);
+  };
+
+  const offerDesc = await pc.createOffer();
+  await pc.setLocalDescription(offerDesc);
+
+  // ICE候補の収集完了を待つ（ローカル通信のみなのでこれで十分）
+  await new Promise((resolve) => {
+    if (pc.iceGatheringState === 'complete') {
+      resolve();
+    } else {
+      pc.addEventListener('icegatheringstatechange', () => {
+        if (pc.iceGatheringState === 'complete') resolve();
       });
+    }
+  });
 
-      channel.onopen = () => { status.textContent = ''; };
-      channel.onclose = () => {
-        status.textContent = '切断されました。再接続中...';
-        setTimeout(connect, 1500);
-      };
+  try {
+    const res = await fetch('/offer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sdp: pc.localDescription.sdp,
+        type: pc.localDescription.type,
+      }),
+    });
+    const answer = await res.json();
+    await pc.setRemoteDescription(answer);
+  } catch (e) {
+    status.textContent = '接続失敗。PCサーバーが起動しているか確認してください';
+    setTimeout(connect, 2000);
+  }
+}
 
-      const offerDesc = await pc.createOffer();
-      await pc.setLocalDescription(offerDesc);
+function send(obj) {
+  if (channel && channel.readyState === 'open') {
+    channel.send(JSON.stringify(obj));
+  }
+}
 
-      // ICE候補の収集完了を待つ（ローカル通信のみなのでこれで十分）
-      await new Promise((resolve) => {
-        if (pc.iceGatheringState === 'complete') {
-          resolve();
-        } else {
-          pc.addEventListener('icegatheringstatechange', () => {
-            if (pc.iceGatheringState === 'complete') resolve();
-          });
-        }
-      });
+function clickLeft(e) { e.preventDefault(); send({type: 'click'}); }
+function clickRight(e) { e.preventDefault(); send({type: 'rightclick'}); }
 
-      try {
-        const res = await fetch('/offer', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sdp: pc.localDescription.sdp,
-            type: pc.localDescription.type,
-          }),
-        });
-        const answer = await res.json();
-        await pc.setRemoteDescription(answer);
-      } catch (e) {
-        status.textContent = '接続失敗。PCサーバーが起動しているか確認してください';
-        setTimeout(connect, 2000);
+// --- キーボード入力パネル（下部ボトムシート） ---
+function openKeyboard(e) {
+  e.preventDefault();
+  document.getElementById('keyboardPanel').style.display = 'flex';
+  document.getElementById('textInput').focus();
+}
+function closeKeyboard(e) {
+  e.preventDefault();
+  document.getElementById('textInput').blur();
+  document.getElementById('keyboardPanel').style.display = 'none';
+}
+function sendText(e) {
+  e.preventDefault();
+  const el = document.getElementById('textInput');
+  if (el.value) {
+    send({type: 'text', text: el.value});
+    el.value = '';
+  }
+}
+function sendEnter(e) {
+  e.preventDefault();
+  send({type: 'key', key: 'enter'});
+}
+let backspaceDelay = null;
+let backspaceInterval = null;
+
+function startBackspace(e) {
+  e.preventDefault();
+  send({type: 'key', key: 'backspace'}); // 最初の1回はすぐ消す
+  backspaceDelay = setTimeout(() => {
+    backspaceInterval = setInterval(() => {
+      send({type: 'key', key: 'backspace'});
+    }, 60); // 以降は60msごとに連続で消す（押している間ずっと）
+  }, 400); // 400ms以上押し続けたら連続削除モードに入る
+}
+
+function stopBackspace(e) {
+  e.preventDefault();
+  clearTimeout(backspaceDelay);
+  clearInterval(backspaceInterval);
+}
+function sendCopy(e) { e.preventDefault(); send({type: 'hotkey', keys: ['ctrl', 'c']}); }
+function sendPaste(e) { e.preventDefault(); send({type: 'hotkey', keys: ['ctrl', 'v']}); }
+
+window.addEventListener('load', connect);
+
+// --- タッチパッド操作 ---
+const touchArea = document.getElementById('touchArea');
+let lastX = 0, lastY = 0;
+let startTime = 0;
+let moved = false;
+let longPressTimer = null;
+let didLongPress = false;
+let touchCount = 0;
+let dragMode = false;
+let lastTapTime = 0;
+let lastTapX = 0, lastTapY = 0;
+let pendingDx = 0, pendingDy = 0;
+
+function applySensitivity(dx, dy) {
+  const dist = Math.hypot(dx, dy);
+  // ゆっくり動かすほど低倍率（精密）、素早く動かすほど高倍率
+  const factor = Math.min(1.0 + dist * 0.25, 4.5);
+  return [dx * factor, dy * factor];
+}
+
+// --- スクロールの慣性（フリック後も減速しながら動き続ける） ---
+let lastScrollDy = 0;      // 離す直前の指の速度（生の値）
+let wasScrolling = false;  // 2本指スクロール中だったかどうか
+let scrollMomentumActive = false;
+const SCROLL_FRICTION = 0.95;            // 1フレームごとの減衰率（大きいほど長く滑る）
+const SCROLL_VELOCITY_THRESHOLD = 0.5;   // これより遅くなったら停止
+
+function startScrollMomentum(initialVelocity) {
+  if (Math.abs(initialVelocity) < SCROLL_VELOCITY_THRESHOLD) return;
+  scrollMomentumActive = true;
+  let velocity = initialVelocity;
+
+  function step() {
+    if (!scrollMomentumActive) return;
+    velocity *= SCROLL_FRICTION;
+    if (Math.abs(velocity) < SCROLL_VELOCITY_THRESHOLD) {
+      scrollMomentumActive = false;
+      return;
+    }
+    send({type: 'scroll', amount: -velocity * SCROLL_SENSITIVITY});
+    requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+function stopScrollMomentum() {
+  scrollMomentumActive = false;
+}
+
+function moveLoop() {
+  if (pendingDx !== 0 || pendingDy !== 0) {
+    send({type: 'move', dx: pendingDx, dy: pendingDy});
+    pendingDx = 0;
+    pendingDy = 0;
+  }
+  requestAnimationFrame(moveLoop);
+}
+requestAnimationFrame(moveLoop);
+
+touchArea.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  stopScrollMomentum(); // 新しい操作を始めたら、前のスクロール慣性は打ち切る
+  touchCount = e.touches.length;
+
+  if (touchCount === 1) {
+    const now = Date.now();
+    const x = e.touches[0].clientX;
+    const y = e.touches[0].clientY;
+    const distFromLastTap = Math.hypot(x - lastTapX, y - lastTapY);
+
+    if (now - lastTapTime < 300 && distFromLastTap < 30) {
+      // 素早い2回目のタップをそのまま押さえ続けた → ドラッグ選択開始
+      dragMode = true;
+      send({type: 'mousedown'});
+      lastTapTime = 0;
+    }
+  }
+
+  send({type: 'stop'}); // 前の操作の惰性が残っていれば打ち切る
+  moved = false;
+  didLongPress = false;
+  startTime = Date.now();
+  lastX = e.touches[0].clientX;
+  lastY = e.touches[0].clientY;
+
+  if (touchCount === 1 && !dragMode) {
+    longPressTimer = setTimeout(() => {
+      if (!moved) {
+        didLongPress = true;
+        send({type: 'rightclick'});
       }
-    }
+    }, 500);
+  }
+}, { passive: false });
 
-    function send(obj) {
-      if (channel && channel.readyState === 'open') {
-        channel.send(JSON.stringify(obj));
-      }
-    }
+touchArea.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  if (e.touches.length === 1) {
+    const x = e.touches[0].clientX;
+    const y = e.touches[0].clientY;
+    const dx = x - lastX;
+    const dy = y - lastY;
 
-    function clickLeft(e) { e.preventDefault(); send({ type: 'click' }); }
-    function clickRight(e) { e.preventDefault(); send({ type: 'rightclick' }); }
-
-    // --- キーボード入力パネル（下部ボトムシート） ---
-    function openKeyboard(e) {
-      e.preventDefault();
-      document.getElementById('keyboardPanel').style.display = 'flex';
-      document.getElementById('textInput').focus();
-    }
-    function closeKeyboard(e) {
-      e.preventDefault();
-      document.getElementById('textInput').blur();
-      document.getElementById('keyboardPanel').style.display = 'none';
-    }
-    function sendText(e) {
-      e.preventDefault();
-      const el = document.getElementById('textInput');
-      if (el.value) {
-        send({ type: 'text', text: el.value });
-        el.value = '';
-      }
-    }
-    function sendEnter(e) {
-      e.preventDefault();
-      send({ type: 'key', key: 'enter' });
-    }
-    let backspaceDelay = null;
-    let backspaceInterval = null;
-
-    function startBackspace(e) {
-      e.preventDefault();
-      send({ type: 'key', key: 'backspace' }); // 最初の1回はすぐ消す
-      backspaceDelay = setTimeout(() => {
-        backspaceInterval = setInterval(() => {
-          send({ type: 'key', key: 'backspace' });
-        }, 60); // 以降は60msごとに連続で消す（押している間ずっと）
-      }, 400); // 400ms以上押し続けたら連続削除モードに入る
-    }
-
-    function stopBackspace(e) {
-      e.preventDefault();
-      clearTimeout(backspaceDelay);
-      clearInterval(backspaceInterval);
-    }
-    function sendCopy(e) { e.preventDefault(); send({ type: 'hotkey', keys: ['ctrl', 'c'] }); }
-    function sendPaste(e) { e.preventDefault(); send({ type: 'hotkey', keys: ['ctrl', 'v'] }); }
-
-    window.addEventListener('load', connect);
-
-    // --- タッチパッド操作 ---
-    const touchArea = document.getElementById('touchArea');
-    let lastX = 0, lastY = 0;
-    let startTime = 0;
-    let moved = false;
-    let longPressTimer = null;
-    let didLongPress = false;
-    let touchCount = 0;
-    let dragMode = false;
-    let lastTapTime = 0;
-    let lastTapX = 0, lastTapY = 0;
-    let pendingDx = 0, pendingDy = 0;
-
-    function applySensitivity(dx, dy) {
-      const dist = Math.hypot(dx, dy);
-      // ゆっくり動かすほど低倍率（精密）、素早く動かすほど高倍率
-      const factor = Math.min(1.0 + dist * 0.25, 4.5);
-      return [dx * factor, dy * factor];
-    }
-
-    function moveLoop() {
-      if (pendingDx !== 0 || pendingDy !== 0) {
-        send({ type: 'move', dx: pendingDx, dy: pendingDy });
-        pendingDx = 0;
-        pendingDy = 0;
-      }
-      requestAnimationFrame(moveLoop);
-    }
-    requestAnimationFrame(moveLoop);
-
-    touchArea.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      touchCount = e.touches.length;
-
-      if (touchCount === 1) {
-        const now = Date.now();
-        const x = e.touches[0].clientX;
-        const y = e.touches[0].clientY;
-        const distFromLastTap = Math.hypot(x - lastTapX, y - lastTapY);
-
-        if (now - lastTapTime < 300 && distFromLastTap < 30) {
-          // 素早い2回目のタップをそのまま押さえ続けた → ドラッグ選択開始
-          dragMode = true;
-          send({ type: 'mousedown' });
-          lastTapTime = 0;
-        }
-      }
-
-      send({ type: 'stop' }); // 前の操作の惰性が残っていれば打ち切る
-      moved = false;
-      didLongPress = false;
-      startTime = Date.now();
-      lastX = e.touches[0].clientX;
-      lastY = e.touches[0].clientY;
-
-      if (touchCount === 1 && !dragMode) {
-        longPressTimer = setTimeout(() => {
-          if (!moved) {
-            didLongPress = true;
-            send({ type: 'rightclick' });
-          }
-        }, 500);
-      }
-    }, { passive: false });
-
-    touchArea.addEventListener('touchmove', (e) => {
-      e.preventDefault();
-      if (e.touches.length === 1) {
-        const x = e.touches[0].clientX;
-        const y = e.touches[0].clientY;
-        const dx = x - lastX;
-        const dy = y - lastY;
-
-        // タップかドラッグかの判定用の閾値（誤タップ防止のため維持）
-        if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
-          moved = true;
-          clearTimeout(longPressTimer);
-        }
-
-        // 送る方には閾値を設けず、小さい動きも取りこぼさない
-        if (dx !== 0 || dy !== 0) {
-          const [adx, ady] = applySensitivity(dx, dy);
-          pendingDx += adx;
-          pendingDy += ady;
-        }
-
-        lastX = x;
-        lastY = y;
-      } else if (e.touches.length === 2) {
-        moved = true;
-        clearTimeout(longPressTimer);
-        const y = e.touches[0].clientY;
-        const dy = y - lastY;
-        send({ type: 'scroll', amount: -dy * SCROLL_SENSITIVITY });
-        lastY = y;
-      }
-    }, { passive: false });
-
-    touchArea.addEventListener('touchend', (e) => {
-      e.preventDefault();
+    // タップかドラッグかの判定用の閾値（誤タップ防止のため維持）
+    if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
+      moved = true;
       clearTimeout(longPressTimer);
+    }
 
-      if (dragMode) {
-        send({ type: 'mouseup' });
-        dragMode = false;
-        if (e.touches.length === 0) send({ type: 'stop' });
-        return;
-      }
+    // 送る方には閾値を設けず、小さい動きも取りこぼさない
+    if (dx !== 0 || dy !== 0) {
+      const [adx, ady] = applySensitivity(dx, dy);
+      pendingDx += adx;
+      pendingDy += ady;
+    }
 
-      const duration = Date.now() - startTime;
-      if (!moved && !didLongPress && duration < 400 && touchCount === 1) {
-        send({ type: 'click' });
-        lastTapTime = Date.now();
-        lastTapX = lastX;
-        lastTapY = lastY;
-      } else {
-        lastTapTime = 0;
-      }
+    lastX = x;
+    lastY = y;
+  } else if (e.touches.length === 2) {
+    moved = true;
+    wasScrolling = true;
+    clearTimeout(longPressTimer);
+    const y = e.touches[0].clientY;
+    const dy = y - lastY;
+    lastScrollDy = dy; // 慣性開始時の初速として使う
+    send({type: 'scroll', amount: -dy * SCROLL_SENSITIVITY});
+    lastY = y;
+  }
+}, { passive: false });
 
-      if (e.touches.length === 0) {
-        send({ type: 'stop' }); // 指が完全に離れたら惰性を打ち切る
-      }
-    }, { passive: false });
+touchArea.addEventListener('touchend', (e) => {
+  e.preventDefault();
+  clearTimeout(longPressTimer);
 
-    // --- 片手用スクロールゾーン（右端を1本指でなぞるとスクロール） ---
-    const scrollZone = document.getElementById('scrollZone');
-    let scrollLastY = 0;
+  if (dragMode) {
+    send({type: 'mouseup'});
+    dragMode = false;
+    if (e.touches.length === 0) send({type: 'stop'});
+    return;
+  }
 
-    scrollZone.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      scrollLastY = e.touches[0].clientY;
-    }, { passive: false });
+  const duration = Date.now() - startTime;
+  if (!moved && !didLongPress && duration < 400 && touchCount === 1) {
+    send({type: 'click'});
+    lastTapTime = Date.now();
+    lastTapX = lastX;
+    lastTapY = lastY;
+  } else {
+    lastTapTime = 0;
+  }
 
-    scrollZone.addEventListener('touchmove', (e) => {
-      e.preventDefault();
-      const y = e.touches[0].clientY;
-      const dy = y - scrollLastY;
-      send({ type: 'scroll', amount: -dy * SCROLL_SENSITIVITY });
-      scrollLastY = y;
-    }, { passive: false });
-  </script>
+  if (e.touches.length === 0) {
+    send({type: 'stop'}); // 指が完全に離れたら惰性を打ち切る
+    if (wasScrolling) {
+      startScrollMomentum(lastScrollDy);
+      wasScrolling = false;
+    }
+  }
+}, { passive: false });
+
+// --- 片手用スクロールゾーン（右端を1本指でなぞるとスクロール） ---
+const scrollZone = document.getElementById('scrollZone');
+let scrollLastY = 0;
+
+scrollZone.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  stopScrollMomentum();
+  scrollLastY = e.touches[0].clientY;
+}, { passive: false });
+
+scrollZone.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  const y = e.touches[0].clientY;
+  const dy = y - scrollLastY;
+  lastScrollDy = dy; // 慣性開始時の初速として使う
+  send({type: 'scroll', amount: -dy * SCROLL_SENSITIVITY});
+  scrollLastY = y;
+}, { passive: false });
+
+scrollZone.addEventListener('touchend', (e) => {
+  e.preventDefault();
+  if (e.touches.length === 0) {
+    startScrollMomentum(lastScrollDy);
+  }
+}, { passive: false });
+</script>
 
 </body>
-
 </html>
