@@ -232,7 +232,8 @@ async def main():
     _loop = asyncio.get_running_loop()
 
     ip = get_local_ip()
-    url = f"http://{ip}:{HTTP_PORT}/mouse_remote.html"
+    # QRコードにPINを埋め込み、スキャンするだけで自動入力されるようにする
+    url = f"http://{ip}:{HTTP_PORT}/mouse_remote.html?pin={PIN}"
 
     app = web.Application()
     app.router.add_get("/mouse_remote.html", index_handler)
@@ -253,7 +254,7 @@ async def main():
     print(f"URL: {url}")
     print()
     print(f"接続用PIN: {PIN}")
-    print("（スマホ側でこのPINの入力が必要です）")
+    print("（QRコードに含まれているので通常は入力不要。QRが読めない場合の保険用）")
     print()
 
     qr = qrcode.QRCode(border=2)

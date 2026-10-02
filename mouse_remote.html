@@ -518,6 +518,19 @@ scrollZone.addEventListener('touchend', (e) => {
     startScrollMomentum(lastScrollDy);
   }
 }, { passive: false });
+
+// QRコードにPINが含まれていれば、入力画面を出さずそのまま自動接続する。
+// 含まれていない場合（QRが読めず手でURLを開いた場合など）だけ手入力画面を見せる。
+window.addEventListener('load', () => {
+  const urlPin = new URLSearchParams(location.search).get('pin');
+  if (urlPin && urlPin.length === 4) {
+    currentPin = urlPin;
+    document.getElementById('pinSetup').style.display = 'none';
+    connect();
+  }
+  // urlPinが無ければ何もしない → #pinSetupが最初から表示されたままなので、
+  // ユーザーはそこでPINを手入力して「接続」を押す
+});
 </script>
 
 </body>
