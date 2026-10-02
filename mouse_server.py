@@ -93,8 +93,6 @@ async def cursor_mover():
 # ============================================================
 
 def setup_data_channel(channel):
-    print("[DATA] DataChannel:", channel.label)
-
     @channel.on("message")
     def on_message(message):
         global _move_dx, _move_dy, _scroll_amount
@@ -124,9 +122,6 @@ def setup_data_channel(channel):
                 pyautogui.rightClick()
             except Exception as e:
                 print("[ERROR] rightClick:", e)
-
-        elif data_type == "stop":
-            pass
 
         elif data_type == "text":
             # クリップボードコピー＋Ctrl+Vは数十ms程度かかることがあり、
@@ -192,7 +187,6 @@ async def offer_handler(request):
 
     pc = RTCPeerConnection()
     _peer_connections.add(pc)
-    print("[WEBRTC] 接続開始")
 
     @pc.on("datachannel")
     def on_datachannel(channel):
@@ -200,7 +194,6 @@ async def offer_handler(request):
 
     @pc.on("connectionstatechange")
     async def on_connectionstatechange():
-        print("[WEBRTC] connectionState:", pc.connectionState)
         if pc.connectionState in ("failed", "closed", "disconnected"):
             try:
                 pyautogui.mouseUp()  # ドラッグ中に切断された場合の保険
