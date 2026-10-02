@@ -1,5 +1,6 @@
 import asyncio
 import json
+import secrets
 import socket
 from pathlib import Path
 
@@ -16,6 +17,9 @@ from aiortc import RTCPeerConnection, RTCSessionDescription
 
 HTTP_PORT = 8000
 HTML_PATH = Path(__file__).parent / "mouse_remote.html"
+
+# 起動のたびにランダムな4桁PINを発行する（同じWi-Fiにいるだけでは操作させない）
+PIN = f"{secrets.randbelow(10000):04d}"
 
 pyautogui.FAILSAFE = False
 pyautogui.PAUSE = 0
@@ -178,6 +182,12 @@ def setup_data_channel(channel):
 
 async def offer_handler(request):
     params = await request.json()
+
+    # PINが一致しない接続要求は、WebRTCの接続自体を始めさせずに拒否する
+    if params.get("pin") != PIN:
+        print("[AUTH] PIN不一致の接続要求を拒否しました")
+        return web.json_response({"error": "invalid pin"}, status=403)
+
     offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
 
     pc = RTCPeerConnection()
@@ -241,6 +251,9 @@ async def main():
     print("スマホで以下のQRコードを読み取ってください。")
     print()
     print(f"URL: {url}")
+    print()
+    print(f"接続用PIN: {PIN}")
+    print("（スマホ側でこのPINの入力が必要です）")
     print()
 
     qr = qrcode.QRCode(border=2)

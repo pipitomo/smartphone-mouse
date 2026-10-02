@@ -15,6 +15,51 @@
     overscroll-behavior: none;
     touch-action: none;
   }
+
+  /* --- PIN入力画面 --- */
+  #pinSetup {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    position: fixed;
+    inset: 0;
+    padding: 24px;
+    padding-top: max(24px, env(safe-area-inset-top));
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
+  }
+  #pinSetup p {
+    color: #aaa;
+    font-size: 14px;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+  #pinInput {
+    width: 160px;
+    font-size: 28px;
+    letter-spacing: 8px;
+    text-align: center;
+    padding: 12px;
+    border-radius: 10px;
+    border: none;
+    margin-bottom: 16px;
+  }
+  #pinSubmit {
+    width: 160px;
+    padding: 12px;
+    font-size: 16px;
+    border-radius: 10px;
+    border: none;
+    background: #0a84ff;
+    color: white;
+  }
+  #pinError {
+    margin-top: 14px;
+    color: #ff6b6b;
+    font-size: 13px;
+    min-height: 16px;
+  }
+
   #padStatus {
     position: absolute;
     top: max(8px, env(safe-area-inset-top));
@@ -25,11 +70,12 @@
     z-index: 1;
   }
   #pad {
-    display: flex;
+    display: none;
     flex-direction: column;
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
   }
+  #pad.active { display: flex; }
   #padMain {
     flex: 1;
     display: flex;
@@ -109,8 +155,15 @@
 </head>
 <body>
 
+<div id="pinSetup">
+  <p>PC側のターミナルに表示されている<br>4桁のPINを入力してください</p>
+  <input id="pinInput" type="tel" inputmode="numeric" maxlength="4" placeholder="0000">
+  <button id="pinSubmit" ontouchstart="submitPin(event)">接続</button>
+  <div id="pinError"></div>
+</div>
+
 <div id="pad">
-  <div id="padStatus">接続中...</div>
+  <div id="padStatus"></div>
   <div id="padMain">
     <div id="touchArea">
       ここを指でなぞってカーソルを移動<br>
@@ -142,12 +195,27 @@
 <script>
 let pc = null;
 let channel = null;
+let currentPin = null; // 一度認証に成功したPINを覚えておき、再接続時にも使う
 
 // 感度（大きいほど、同じ指の動きで大きく動く）
 const MOVE_SENSITIVITY = 2.5;
 const SCROLL_SENSITIVITY = 4;
 
+function submitPin(e) {
+  e.preventDefault();
+  const pin = document.getElementById('pinInput').value.trim();
+  if (pin.length !== 4) {
+    document.getElementById('pinError').textContent = '4桁で入力してください';
+    return;
+  }
+  document.getElementById('pinError').textContent = '';
+  currentPin = pin;
+  connect();
+}
+
 async function connect() {
+  if (!currentPin) return; // PIN入力前は何もしない
+
   const status = document.getElementById('padStatus');
   status.textContent = '接続中...';
 
@@ -160,7 +228,11 @@ async function connect() {
     maxRetransmits: 0,
   });
 
-  channel.onopen = () => { status.textContent = ''; };
+  channel.onopen = () => {
+    status.textContent = '';
+    document.getElementById('pinSetup').style.display = 'none';
+    document.getElementById('pad').classList.add('active');
+  };
   channel.onclose = () => {
     status.textContent = '切断されました。再接続中...';
     setTimeout(connect, 1500);
@@ -187,8 +259,19 @@ async function connect() {
       body: JSON.stringify({
         sdp: pc.localDescription.sdp,
         type: pc.localDescription.type,
+        pin: currentPin,
       }),
     });
+
+    if (res.status === 403) {
+      // PINが違う → 接続をやめてPIN入力画面に戻す
+      document.getElementById('pinSetup').style.display = 'flex';
+      document.getElementById('pad').classList.remove('active');
+      document.getElementById('pinError').textContent = 'PINが違います';
+      currentPin = null;
+      return;
+    }
+
     const answer = await res.json();
     await pc.setRemoteDescription(answer);
   } catch (e) {
@@ -250,8 +333,6 @@ function stopBackspace(e) {
 function sendCopy(e) { e.preventDefault(); send({type: 'hotkey', keys: ['ctrl', 'c']}); }
 function sendPaste(e) { e.preventDefault(); send({type: 'hotkey', keys: ['ctrl', 'v']}); }
 
-window.addEventListener('load', connect);
-
 // --- タッチパッド操作 ---
 const touchArea = document.getElementById('touchArea');
 let lastX = 0, lastY = 0;
@@ -271,6 +352,16 @@ function applySensitivity(dx, dy) {
   const factor = Math.min(1.0 + dist * 0.25, 4.5);
   return [dx * factor, dy * factor];
 }
+
+function moveLoop() {
+  if (pendingDx !== 0 || pendingDy !== 0) {
+    send({type: 'move', dx: pendingDx, dy: pendingDy});
+    pendingDx = 0;
+    pendingDy = 0;
+  }
+  requestAnimationFrame(moveLoop);
+}
+requestAnimationFrame(moveLoop);
 
 // --- スクロールの慣性（フリック後も減速しながら動き続ける） ---
 let lastScrollDy = 0;      // 離す直前の指の速度（生の値）
@@ -300,16 +391,6 @@ function startScrollMomentum(initialVelocity) {
 function stopScrollMomentum() {
   scrollMomentumActive = false;
 }
-
-function moveLoop() {
-  if (pendingDx !== 0 || pendingDy !== 0) {
-    send({type: 'move', dx: pendingDx, dy: pendingDy});
-    pendingDx = 0;
-    pendingDy = 0;
-  }
-  requestAnimationFrame(moveLoop);
-}
-requestAnimationFrame(moveLoop);
 
 touchArea.addEventListener('touchstart', (e) => {
   e.preventDefault();
