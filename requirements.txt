@@ -1,4 +1,5 @@
 aiohttp
 aiortc
 pyautogui
+pyperclip
 qrcode
